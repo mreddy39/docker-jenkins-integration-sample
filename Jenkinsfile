@@ -1,36 +1,58 @@
-node {
-    def app
+def app
+def fortifyCredentialsId = "fortifyCredentialsId"
+pipeline{
 
-    stage('Clone repository') {
-        /* Let's make sure we have the repository cloned to our workspace */
-
-        checkout scm
-    }
-
-    stage('Build image') {
-        /* This builds the actual image; synonymous to
-         * docker build on the command line */
-
-        app = docker.build("getintodevops/hellonode")
-    }
-
-    stage('Test image') {
-        /* Ideally, we would run a test framework against our image.
-         * For this example, we're using a Volkswagen-type approach ;-) */
-
-        app.inside {
-            sh 'echo "Tests passed"'
+        agent{
+            label 'master'
         }
+
+          stages{
+            /*stage('env configure') {
+                steps{
+                    sh '''
+                    echo "PATH = ${PATH}"
+                    echo "MAVEN_HOME = ${MAVEN_HOME}"
+                    '''
+                }
+            }*/
+            stage('checkout'){
+              steps{
+	      	script{
+                  checkout scm
+
+
+            }
+	    }
+          }
+          stage('build'){
+            steps{
+	    	script{
+                bat "mvn clean package -DskipTests"
+
+            }
+	    }
+       }
+stage('Registring image and Docker image Build'){
+    steps{
+     	script{
+app = docker.build("helloworld")
+}
+}
+}
+
+stage('Push image to ACR with buildno tag'){
+    steps{
+     	script{
+//You would need to first register with ACR before you can push images to your account
+
+  docker.withRegistry('https://hellodevuscacr.azurecr.io', 'hellodevuscacr') {
+      app.push("${env.BUILD_NUMBER}")
+      app.push("latest")
+
+      }
+     	}
     }
 
-    stage('Push image') {
-        /* Finally, we'll push the image with two tags:
-         * First, the incremental build number from Jenkins
-         * Second, the 'latest' tag.
-         * Pushing multiple tags is cheap, as all the layers are reused. */
-        docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-            app.push("${env.BUILD_NUMBER}")
-            app.push("latest")
-        }
-    }
+}
+}
 }
